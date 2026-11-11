@@ -15,7 +15,12 @@ namespace Sjcl.GripBlink.Editor
         private bool _advanced;
         private string _detectMessage;
 
-        private static readonly GUIContent[] HandLabels = { new GUIContent("左手"), new GUIContent("右手") };
+        private static readonly GUIContent[] HandLabels =
+        {
+            new GUIContent("左手"),
+            new GUIContent("右手"),
+            new GUIContent("左右どちらでも", "片方の手だけで操作できます（両手で握る必要はありません）。先に操作した手が優先され、その手を離すともう一方の手に切り替わります"),
+        };
 
         private void OnEnable()
         {

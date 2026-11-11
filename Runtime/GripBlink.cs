@@ -7,6 +7,12 @@ namespace Sjcl.GripBlink
     {
         Left = 0,
         Right = 1,
+
+        /// <summary>
+        /// 左右どちらの手でも操作できる（両手で握る必要はない）。
+        /// 先に操作し始めた手が優先され、その手を離すと、もう一方の手が操作中ならそちらに切り替わる。
+        /// </summary>
+        Either = 2,
     }
 
     public enum EyeControlMode
@@ -34,20 +40,20 @@ namespace Sjcl.GripBlink
         [Tooltip("目を閉じるアニメーションクリップ（既存の blink クリップ）。最も目が閉じたフレームが自動で使われます")]
         public AnimationClip blinkClip;
 
-        [Tooltip("閉眼に使う手")]
-        public GripHand hand = GripHand.Left;
+        [Tooltip("閉眼に使う手。「左右どちらでも」は片方の手だけで操作でき、先に操作した手が優先されます")]
+        public GripHand hand = GripHand.Either;
 
         // --- 左右独立モード ---
         [Tooltip("左目だけを閉じるクリップ（wink_L など）")]
         public AnimationClip leftEyeClip;
 
-        [Tooltip("左目を制御する手")]
+        [Tooltip("左目を制御する手。「左右どちらでも」は片方の手だけで操作できます")]
         public GripHand leftEyeHand = GripHand.Left;
 
         [Tooltip("右目だけを閉じるクリップ（wink_R など）")]
         public AnimationClip rightEyeClip;
 
-        [Tooltip("右目を制御する手")]
+        [Tooltip("右目を制御する手。「左右どちらでも」は片方の手だけで操作できます")]
         public GripHand rightEyeHand = GripHand.Right;
 
         // --- 基本設定 ---

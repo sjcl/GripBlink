@@ -46,7 +46,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mode: 0
   blinkClip: {fileID: 0}
-  hand: 0
+  hand: 2
   leftEyeClip: {fileID: 0}
   leftEyeHand: 0
   rightEyeClip: {fileID: 0}

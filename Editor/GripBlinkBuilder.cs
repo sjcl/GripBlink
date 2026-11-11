@@ -16,6 +16,8 @@ namespace Sjcl.GripBlink.Editor
     ///   Init   : 初期状態。レイヤーウェイトを即座に 0 にする
     ///   Idle   : モーションなし、レイヤーウェイト → 0（既存の表情に一切影響しない）
     ///   Active : GestureXWeight で「開いたポーズ」と「閉じたポーズ」をブレンド、レイヤーウェイト → 1
+    ///            「左右どちらでも」の場合は左右それぞれの Active を持ち、先に操作した手を使う。
+    ///            その手を離したとき、もう一方の手が操作中ならそちらの Active に引き継ぐ。
     /// 自動まばたきの一時停止が有効なら、さらに目のトラッキング切り替え専用レイヤーを1つ追加する
     /// （いずれかのチャンネルが Active の間は Animation、すべて Idle になったら Tracking）。
     /// </summary>
@@ -58,8 +60,12 @@ namespace Sjcl.GripBlink.Editor
             for (var i = 0; i < built.Count; i++)
             {
                 var (ch, pose) = built[i];
-                AddParam(controller, addedParams, ch.WeightParam, AnimatorControllerParameterType.Float);
-                if (gb.requireFist) AddParam(controller, addedParams, ch.GestureParam, AnimatorControllerParameterType.Int);
+                foreach (var hand in ch.Hands)
+                {
+                    AddParam(controller, addedParams, EyeChannel.WeightParam(hand), AnimatorControllerParameterType.Float);
+                    if (gb.requireFist)
+                        AddParam(controller, addedParams, EyeChannel.GestureParam(hand), AnimatorControllerParameterType.Int);
+                }
 
                 var layerName = gb.mode == EyeControlMode.BothEyes ? LayerPrefix : $"{LayerPrefix} ({ch.Label})";
                 controller.AddLayer(BuildEyeLayer(gb, ch, pose, layerName, i, deadZone));
@@ -67,7 +73,8 @@ namespace Sjcl.GripBlink.Editor
 
             if (gb.suppressAutoBlink)
             {
-                controller.AddLayer(BuildTrackingLayer(gb, built.Select(b => b.Item1).ToList(), deadZone));
+                var hands = built.SelectMany(b => b.Item1.Hands).Distinct().OrderBy(h => h).ToList();
+                controller.AddLayer(BuildTrackingLayer(gb, hands, deadZone));
             }
 
             return controller;
@@ -80,20 +87,37 @@ namespace Sjcl.GripBlink.Editor
             controller.AddParameter(new AnimatorControllerParameter { name = name, type = type });
         }
 
-        /// <summary>このチャンネルが操作中になる条件（AND）</summary>
-        private static List<Cond> ActivateConditions(GripBlink gb, EyeChannel ch, float deadZone)
+        /// <summary>この手が操作中になる条件（AND）</summary>
+        private static List<Cond> ActivateConditions(GripBlink gb, GripHand hand, float deadZone)
         {
-            var list = new List<Cond> { new Cond(AnimatorConditionMode.Greater, deadZone, ch.WeightParam) };
-            if (gb.requireFist) list.Add(new Cond(AnimatorConditionMode.Equals, 1f, ch.GestureParam));
+            var list = new List<Cond>
+                { new Cond(AnimatorConditionMode.Greater, deadZone, EyeChannel.WeightParam(hand)) };
+            if (gb.requireFist)
+                list.Add(new Cond(AnimatorConditionMode.Equals, 1f, EyeChannel.GestureParam(hand)));
             return list;
         }
 
-        /// <summary>このチャンネルが操作をやめる条件（OR。各要素が1つの遷移になる）</summary>
-        private static List<Cond> DeactivateConditions(GripBlink gb, EyeChannel ch, float deadZone)
+        /// <summary>この手が操作をやめる条件（OR。各要素が1つの遷移になる）</summary>
+        private static List<Cond> DeactivateConditions(GripBlink gb, GripHand hand, float deadZone)
         {
-            var list = new List<Cond> { new Cond(AnimatorConditionMode.Less, deadZone + Epsilon, ch.WeightParam) };
-            if (gb.requireFist) list.Add(new Cond(AnimatorConditionMode.NotEqual, 1f, ch.GestureParam));
+            var list = new List<Cond>
+                { new Cond(AnimatorConditionMode.Less, deadZone + Epsilon, EyeChannel.WeightParam(hand)) };
+            if (gb.requireFist)
+                list.Add(new Cond(AnimatorConditionMode.NotEqual, 1f, EyeChannel.GestureParam(hand)));
             return list;
+        }
+
+        /// <summary>すべての手が操作をやめた条件。各手の「やめる条件（OR）」の直積を、それぞれ1つの遷移にする</summary>
+        private static List<List<Cond>> AllDeactivatedCombos(GripBlink gb, IEnumerable<GripHand> hands, float deadZone)
+        {
+            IEnumerable<List<Cond>> combos = new[] { new List<Cond>() };
+            foreach (var hand in hands)
+            {
+                var options = DeactivateConditions(gb, hand, deadZone);
+                combos = combos.SelectMany(prev => options.Select(o => new List<Cond>(prev) { o })).ToList();
+            }
+
+            return combos.ToList();
         }
 
         private static AnimatorStateMachine NewStateMachine(string name)
@@ -120,20 +144,6 @@ namespace Sjcl.GripBlink.Editor
             var maxClosure = Mathf.Clamp(gb.maxClosure, 0.05f, 1f);
             var closedThreshold = deadZone + (1f - deadZone) / maxClosure;
 
-            var tree = new BlendTree
-            {
-                name = $"{layerName} Blend",
-                blendType = BlendTreeType.Simple1D,
-                blendParameter = ch.WeightParam,
-                useAutomaticThresholds = false,
-                hideFlags = HideFlags.HideInHierarchy,
-            };
-            tree.children = new[]
-            {
-                new ChildMotion { motion = openClip, threshold = deadZone, timeScale = 1f },
-                new ChildMotion { motion = closedClip, threshold = closedThreshold, timeScale = 1f },
-            };
-
             var fade = Mathf.Max(0f, gb.fadeDuration);
             var sm = NewStateMachine(layerName);
 
@@ -145,17 +155,61 @@ namespace Sjcl.GripBlink.Editor
             idle.writeDefaultValues = false;
             idle.behaviours = new StateMachineBehaviour[] { MakeLayerControl(layerIndex, 0f, fade) };
 
-            var active = sm.AddState("Active", new Vector3(240, 120));
-            active.writeDefaultValues = false;
-            active.motion = tree;
-            active.behaviours = new StateMachineBehaviour[] { MakeLayerControl(layerIndex, 1f, fade) };
-
             sm.defaultState = init;
 
-            var activate = ActivateConditions(gb, ch, deadZone);
-            AddTransition(init, active, activate);
-            AddTransition(idle, active, activate);
-            foreach (var c in DeactivateConditions(gb, ch, deadZone)) AddTransition(active, idle, new[] { c });
+            // 手ごとに Active ステートを作る。「左右どちらでも」なら左右2つ
+            var hands = ch.Hands;
+            var actives = new List<(GripHand hand, AnimatorState state)>();
+            for (var i = 0; i < hands.Count; i++)
+            {
+                var hand = hands[i];
+                var stateName = hands.Count == 1 ? "Active" : $"Active ({EyeChannel.HandLabel(hand)})";
+                var tree = new BlendTree
+                {
+                    name = $"{layerName} Blend {hand}",
+                    blendType = BlendTreeType.Simple1D,
+                    blendParameter = EyeChannel.WeightParam(hand),
+                    useAutomaticThresholds = false,
+                    hideFlags = HideFlags.HideInHierarchy,
+                };
+                tree.children = new[]
+                {
+                    new ChildMotion { motion = openClip, threshold = deadZone, timeScale = 1f },
+                    new ChildMotion { motion = closedClip, threshold = closedThreshold, timeScale = 1f },
+                };
+
+                var active = sm.AddState(stateName, new Vector3(120 + 240 * i, 120));
+                active.writeDefaultValues = false;
+                active.motion = tree;
+                active.behaviours = new StateMachineBehaviour[] { MakeLayerControl(layerIndex, 1f, fade) };
+                actives.Add((hand, active));
+            }
+
+            // 待機中 → 操作を始めた手の Active（両手同時なら左手が先）
+            foreach (var (hand, active) in actives)
+            {
+                var activate = ActivateConditions(gb, hand, deadZone);
+                AddTransition(init, active, activate);
+                AddTransition(idle, active, activate);
+            }
+
+            foreach (var (hand, active) in actives)
+            {
+                // 操作中の手を離したとき、もう一方の手が操作中ならそちらへ引き継ぐ（Idle への遷移より先に評価される）
+                foreach (var (otherHand, other) in actives)
+                {
+                    if (other == active) continue;
+                    foreach (var release in DeactivateConditions(gb, hand, deadZone))
+                    {
+                        var conds = new List<Cond> { release };
+                        conds.AddRange(ActivateConditions(gb, otherHand, deadZone));
+                        AddTransition(active, other, conds, fade);
+                    }
+                }
+
+                foreach (var release in DeactivateConditions(gb, hand, deadZone))
+                    AddTransition(active, idle, new[] { release });
+            }
 
             return new AnimatorControllerLayer
             {
@@ -169,11 +223,10 @@ namespace Sjcl.GripBlink.Editor
 
         /// <summary>
         /// 目のトラッキング切り替え専用レイヤー。アニメーションは持たない。
-        /// いずれかのチャンネルが操作中なら Animation、すべて操作をやめたら Tracking に戻す。
+        /// いずれかの手が操作中なら Animation、すべての手が操作をやめたら Tracking に戻す。
         /// 初期状態では何も変更しない（既存の Tracking Control を読み込み時に上書きしない）。
         /// </summary>
-        private static AnimatorControllerLayer BuildTrackingLayer(GripBlink gb, List<EyeChannel> channels,
-            float deadZone)
+        private static AnimatorControllerLayer BuildTrackingLayer(GripBlink gb, List<GripHand> hands, float deadZone)
         {
             var name = $"{LayerPrefix} (Eye Tracking)";
             var sm = NewStateMachine(name);
@@ -193,23 +246,16 @@ namespace Sjcl.GripBlink.Editor
 
             sm.defaultState = init;
 
-            // いずれかが操作中 → Active（チャンネルごとに1遷移 = OR）
-            foreach (var ch in channels)
+            // いずれかの手が操作中 → Active（手ごとに1遷移 = OR）
+            foreach (var hand in hands)
             {
-                var activate = ActivateConditions(gb, ch, deadZone);
+                var activate = ActivateConditions(gb, hand, deadZone);
                 AddTransition(init, active, activate);
                 AddTransition(idle, active, activate);
             }
 
-            // すべてが操作をやめた → Idle。各チャンネルの「やめる条件（OR）」の直積を遷移にする
-            IEnumerable<List<Cond>> combos = new[] { new List<Cond>() };
-            foreach (var ch in channels)
-            {
-                var options = DeactivateConditions(gb, ch, deadZone);
-                combos = combos.SelectMany(prev => options.Select(o => new List<Cond>(prev) { o })).ToList();
-            }
-
-            foreach (var combo in combos) AddTransition(active, idle, combo);
+            // すべての手が操作をやめた → Idle
+            foreach (var combo in AllDeactivatedCombos(gb, hands, deadZone)) AddTransition(active, idle, combo);
 
             return new AnimatorControllerLayer
             {
@@ -221,13 +267,14 @@ namespace Sjcl.GripBlink.Editor
             };
         }
 
-        private static void AddTransition(AnimatorState from, AnimatorState to, IEnumerable<Cond> conditions)
+        private static void AddTransition(AnimatorState from, AnimatorState to, IEnumerable<Cond> conditions,
+            float duration = 0f)
         {
             var t = from.AddTransition(to);
             t.hasExitTime = false;
             t.exitTime = 0f;
             t.hasFixedDuration = true;
-            t.duration = 0f;
+            t.duration = duration;
             t.offset = 0f;
             t.canTransitionToSelf = false;
             t.interruptionSource = TransitionInterruptionSource.None;

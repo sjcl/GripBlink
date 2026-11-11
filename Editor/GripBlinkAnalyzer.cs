@@ -42,8 +42,22 @@ namespace Sjcl.GripBlink.Editor
             Hand = hand;
         }
 
-        public string GestureParam => Hand == GripHand.Left ? "GestureLeft" : "GestureRight";
-        public string WeightParam => Hand == GripHand.Left ? "GestureLeftWeight" : "GestureRightWeight";
+        private static readonly GripHand[] BothHands = { GripHand.Left, GripHand.Right };
+
+        /// <summary>実際に入力を見る手（「左右どちらでも」は左右両方）</summary>
+        public IReadOnlyList<GripHand> Hands => Hand == GripHand.Either ? BothHands : new[] { Hand };
+
+        public static string GestureParam(GripHand hand) => hand == GripHand.Left ? "GestureLeft" : "GestureRight";
+
+        public static string WeightParam(GripHand hand) =>
+            hand == GripHand.Left ? "GestureLeftWeight" : "GestureRightWeight";
+
+        public static string HandLabel(GripHand hand) => hand switch
+        {
+            GripHand.Left => "左手",
+            GripHand.Right => "右手",
+            _ => "左右どちらでも",
+        };
     }
 
     /// <summary>クリップから取り出した1プロパティ分の「開いた値」と「閉じた値」</summary>
@@ -269,7 +283,7 @@ namespace Sjcl.GripBlink.Editor
             var overlapLayers = new List<string>();
             var fistLayers = new List<string>();
             var trackingLayers = new List<string>();
-            var gestureParams = new HashSet<string>(channels.Select(c => c.channel.GestureParam));
+            var gestureParams = new HashSet<string>(channels.SelectMany(c => c.channel.Hands).Select(EyeChannel.GestureParam));
 
             foreach (var src in GetFxSources(desc, gb))
             {
@@ -438,7 +452,7 @@ namespace Sjcl.GripBlink.Editor
                     var lines = pose.Take(6).Select(e => $"{Describe(e.Binding)}: {e.Rest:0.##} → {e.Closed:0.##}");
                     var more = pose.Count > 6 ? $"\n…ほか {pose.Count - 6} 件" : "";
                     diagnostics.Add(new Diagnostic(Severity.Info,
-                        $"{ch.Label}（{(ch.Hand == GripHand.Left ? "左手" : "右手")}）で動かす値:\n" + string.Join("\n", lines) + more));
+                        $"{ch.Label}（{EyeChannel.HandLabel(ch.Hand)}）で動かす値:\n" + string.Join("\n", lines) + more));
                 }
             }
 
