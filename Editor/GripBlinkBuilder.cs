@@ -12,14 +12,10 @@ namespace Sjcl.GripBlink.Editor
     /// GripBlink の設定から、FX にマージする AnimatorController をメモリ上に生成する。
     /// 既存のクリップやコントローラーは読むだけで変更しない。
     ///
-    /// 各チャンネル（両目 / 左目 / 右目）ごとに1レイヤー:
-    ///   Init   : 初期状態。レイヤーウェイトを即座に 0 にする
-    ///   Idle   : モーションなし、レイヤーウェイト → 0（既存の表情に一切影響しない）
-    ///   Active : GestureXWeight で「開いたポーズ」と「閉じたポーズ」をブレンド、レイヤーウェイト → 1
-    ///            「左右どちらでも」の場合は左右それぞれの Active を持ち、先に操作した手を使う。
-    ///            その手を離したとき、もう一方の手が操作中ならそちらの Active に引き継ぐ。
-    /// 自動まばたきの一時停止が有効なら、さらに目のトラッキング切り替え専用レイヤーを1つ追加する
-    /// （いずれかのチャンネルが Active の間は Animation、すべて Idle になったら Tracking）。
+    /// Idle 中はレイヤーウェイトを 0 にして、既存の表情に影響しないようにする。
+    /// Tracking Control は目のレイヤーごとに置かず、専用レイヤーにまとめる。
+    /// 左右独立のとき、片目のレイヤーが Idle に戻った時点で Tracking に戻すと、
+    /// もう一方の目を操作中でも自動まばたきが再開してしまうため。
     /// </summary>
     internal static class GripBlinkBuilder
     {
@@ -107,7 +103,10 @@ namespace Sjcl.GripBlink.Editor
             return list;
         }
 
-        /// <summary>すべての手が操作をやめた条件。各手の「やめる条件（OR）」の直積を、それぞれ1つの遷移にする</summary>
+        /// <summary>
+        /// すべての手が操作をやめた条件。Animator の遷移条件は AND しか書けないため、
+        /// 各手の「やめる条件（OR）」の直積を取り、組み合わせごとに1つの遷移にする。
+        /// </summary>
         private static List<List<Cond>> AllDeactivatedCombos(GripBlink gb, IEnumerable<GripHand> hands, float deadZone)
         {
             IEnumerable<List<Cond>> combos = new[] { new List<Cond>() };
@@ -157,7 +156,6 @@ namespace Sjcl.GripBlink.Editor
 
             sm.defaultState = init;
 
-            // 手ごとに Active ステートを作る。「左右どちらでも」なら左右2つ
             var hands = ch.Hands;
             var actives = new List<(GripHand hand, AnimatorState state)>();
             for (var i = 0; i < hands.Count; i++)
@@ -185,7 +183,7 @@ namespace Sjcl.GripBlink.Editor
                 actives.Add((hand, active));
             }
 
-            // 待機中 → 操作を始めた手の Active（両手同時なら左手が先）
+            // 遷移は追加した順に評価されるため、両手が同時に操作を始めたときは左手が優先される
             foreach (var (hand, active) in actives)
             {
                 var activate = ActivateConditions(gb, hand, deadZone);
@@ -195,7 +193,8 @@ namespace Sjcl.GripBlink.Editor
 
             foreach (var (hand, active) in actives)
             {
-                // 操作中の手を離したとき、もう一方の手が操作中ならそちらへ引き継ぐ（Idle への遷移より先に評価される）
+                // 引き継ぎの遷移は Idle への遷移より先に追加する。先に評価させないと、
+                // もう一方の手が操作中でも一度 Idle に戻り、レイヤーウェイトが下がってしまう
                 foreach (var (otherHand, other) in actives)
                 {
                     if (other == active) continue;
@@ -222,9 +221,9 @@ namespace Sjcl.GripBlink.Editor
         }
 
         /// <summary>
-        /// 目のトラッキング切り替え専用レイヤー。アニメーションは持たない。
-        /// いずれかの手が操作中なら Animation、すべての手が操作をやめたら Tracking に戻す。
-        /// 初期状態では何も変更しない（既存の Tracking Control を読み込み時に上書きしない）。
+        /// 目のトラッキング切り替え専用レイヤー。
+        /// Init には Tracking Control を置かない。読み込み時に Tracking を設定すると、
+        /// アバターの既存レイヤーが設定した目のトラッキングを上書きしてしまうため。
         /// </summary>
         private static AnimatorControllerLayer BuildTrackingLayer(GripBlink gb, List<GripHand> hands, float deadZone)
         {
@@ -246,7 +245,7 @@ namespace Sjcl.GripBlink.Editor
 
             sm.defaultState = init;
 
-            // いずれかの手が操作中 → Active（手ごとに1遷移 = OR）
+            // 手ごとに別の遷移にして OR にする
             foreach (var hand in hands)
             {
                 var activate = ActivateConditions(gb, hand, deadZone);
@@ -254,7 +253,6 @@ namespace Sjcl.GripBlink.Editor
                 AddTransition(idle, active, activate);
             }
 
-            // すべての手が操作をやめた → Idle
             foreach (var combo in AllDeactivatedCombos(gb, hands, deadZone)) AddTransition(active, idle, combo);
 
             return new AnimatorControllerLayer
@@ -285,8 +283,8 @@ namespace Sjcl.GripBlink.Editor
         {
             var layerControl = ScriptableObject.CreateInstance<VRCAnimatorLayerControl>();
             layerControl.hideFlags = HideFlags.HideInHierarchy;
-            // Merge Animator は同一コントローラー内のレイヤー番号をマージ後の番号に補正する
             layerControl.playable = VRC_AnimatorLayerControl.BlendableLayer.FX;
+            // 生成コントローラー内の番号でよい。Merge Animator がマージ後の FX 内の番号に補正する
             layerControl.layer = layerIndex;
             layerControl.goalWeight = goalWeight;
             layerControl.blendDuration = duration;

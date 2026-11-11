@@ -24,10 +24,6 @@ namespace Sjcl.GripBlink.Editor
             ObjectChangeEvents.changesPublished += OnChangesPublished;
         }
 
-        // ------------------------------------------------------------------
-        // 右クリックメニュー
-        // ------------------------------------------------------------------
-
         [MenuItem(MenuPath, true)]
         private static bool ValidateAdd()
         {
@@ -115,7 +111,10 @@ namespace Sjcl.GripBlink.Editor
             }
         }
 
-        /// <summary>空欄のクリップを自動検出で埋める。見つかったものだけ設定し、手動設定は上書きしない</summary>
+        /// <summary>
+        /// クリップが1つも設定されていないときだけ、自動検出の結果を設定する。
+        /// どれか1つでも設定済みなら、ユーザーが手動で設定したものとみなして何もしない。
+        /// </summary>
         internal static bool AutoAssign(GripBlink gb, VRCAvatarDescriptor desc)
         {
             if (gb.blinkClip != null || gb.leftEyeClip != null || gb.rightEyeClip != null) return false;
@@ -145,10 +144,7 @@ namespace Sjcl.GripBlink.Editor
             return true;
         }
 
-        // ------------------------------------------------------------------
-        // ドラッグ＆ドロップ（や複製）で追加されたときのチェック
-        // ------------------------------------------------------------------
-
+        // ドラッグ＆ドロップのほか、複製や貼り付けで追加されたときにも呼ばれる
         private static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
             if (_installing || EditorApplication.isPlayingOrWillChangePlaymode) return;

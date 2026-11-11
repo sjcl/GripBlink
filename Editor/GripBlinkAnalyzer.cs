@@ -174,10 +174,6 @@ namespace Sjcl.GripBlink.Editor
             return $"{path}/{b.propertyName}";
         }
 
-        // ------------------------------------------------------------------
-        // 競合検出
-        // ------------------------------------------------------------------
-
         /// <summary>FX に入る既存のアニメーター（アバター記述子と他の MA Merge Animator）</summary>
         private readonly struct FxSource
         {

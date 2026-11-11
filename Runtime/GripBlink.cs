@@ -17,10 +17,10 @@ namespace Sjcl.GripBlink
 
     public enum EyeControlMode
     {
-        /// <summary>1つのクリップ・片手の入力で両目を制御する</summary>
+        /// <summary>1つのクリップで両目を制御する。入力する手は hand で指定する</summary>
         BothEyes = 0,
 
-        /// <summary>左目用・右目用のクリップをそれぞれ別の手で制御する</summary>
+        /// <summary>左目用・右目用のクリップを、それぞれに指定した手で制御する</summary>
         Separate = 1,
     }
 

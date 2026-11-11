@@ -19,7 +19,7 @@ namespace Sjcl.GripBlink.Editor
 
     /// <summary>
     /// アバターの FX や近くのフォルダから blink 系クリップを探す。
-    /// 見つからない場合は、記述子のまばたきシェイプキーから新しいクリップを作る（既存アセットは変更しない）。
+    /// 検出では何も作らない。シェイプキーからのクリップ作成（CreateClipFromShape）は Inspector のボタン操作時だけ行う。
     /// </summary>
     internal static class ClipDetector
     {
@@ -97,7 +97,8 @@ namespace Sjcl.GripBlink.Editor
                 var pose = GripBlinkAnalyzer.ComputePose(kv.Key, desc.gameObject, true, 0f, null, "");
                 if (pose.Count == 0) continue;
 
-                // 目以外も大きく動かすクリップ（表情全体など）は避け、FX で実際に使われているものを優先
+                // 動かす値が多いクリップは表情全体を含んでいる可能性が高いので、値の数に応じて減点する
+                // （目の値かどうかは判定していない）。FX で実際に使われているものは加点する
                 var score = 100f + (kv.Value ? 50f : 0f) - pose.Count * 3f - kv.Key.name.Length * 0.1f;
                 if (!best.TryGetValue(side.Value, out var cur) || score > cur.score) best[side.Value] = (kv.Key, score);
             }
@@ -142,10 +143,6 @@ namespace Sjcl.GripBlink.Editor
                 folders.Add(target);
         }
 
-        // ------------------------------------------------------------------
-        // シェイプキーからのクリップ作成
-        // ------------------------------------------------------------------
-
         public struct ShapeCandidates
         {
             public SkinnedMeshRenderer Renderer;
@@ -156,7 +153,6 @@ namespace Sjcl.GripBlink.Editor
             public bool Any => Renderer != null && (Both != null || Left != null || Right != null);
         }
 
-        /// <summary>アバター記述子の目のメッシュから、まばたき系シェイプキーを探す</summary>
         public static ShapeCandidates FindShapes(VRCAvatarDescriptor desc)
         {
             var result = new ShapeCandidates();
@@ -196,7 +192,6 @@ namespace Sjcl.GripBlink.Editor
             return result;
         }
 
-        /// <summary>シェイプキーを 100 にするだけの新しいクリップを Assets/GripBlink/Generated に作る</summary>
         public static AnimationClip CreateClipFromShape(VRCAvatarDescriptor desc, SkinnedMeshRenderer smr,
             string shapeName, string suffix)
         {
