@@ -1,0 +1,17 @@
+{
+  "name": "com.sjcl.gripblink",
+  "displayName": "GripBlink",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "コントローラーのトリガー（Fist 時の GestureWeight）の引き具合に応じて、既存の blink アニメーションでまぶたを連続的に閉じる非破壊ツール。",
+  "author": {
+    "name": "sjcl"
+  },
+  "license": "MIT",
+  "keywords": ["VRChat", "Avatar", "Blink", "NDMF", "Modular Avatar"],
+  "vpmDependencies": {
+    "com.vrchat.avatars": ">=3.7.0",
+    "nadena.dev.ndmf": ">=1.5.0 <2.0.0-a",
+    "nadena.dev.modular-avatar": ">=1.10.0 <2.0.0-a"
+  }
+}

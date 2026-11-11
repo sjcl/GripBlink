@@ -1,0 +1,24 @@
+{
+    "name": "Sjcl.GripBlink.Editor",
+    "rootNamespace": "Sjcl.GripBlink.Editor",
+    "references": [
+        "Sjcl.GripBlink",
+        "nadena.dev.ndmf",
+        "nadena.dev.ndmf.runtime",
+        "nadena.dev.modular-avatar.core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "VRCSDKBase.dll",
+        "VRCSDK3A.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
