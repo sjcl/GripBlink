@@ -14,7 +14,7 @@ namespace Sjcl.GripBlink.Editor
     /// </summary>
     public class GripBlinkPlugin : Plugin<GripBlinkPlugin>
     {
-        public override string QualifiedName => "com.sjcl.gripblink";
+        public override string QualifiedName => "me.sjcl.gripblink";
         public override string DisplayName => "GripBlink";
 
         protected override void Configure()
