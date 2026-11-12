@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  PACKAGE_NAME: me.sjcl.gripblink
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version
+        id: ver
+        run: |
+          version=$(jq -r .version package.json)
+          if [ "v$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "package.json version ($version) does not match tag (${GITHUB_REF_NAME})" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip
+        run: |
+          zip -r "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" . \
+            -x ".git/*" ".github/*" "Tests/*" "Tests.meta" ".gitignore" ".gitattributes" "*.zip"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" \
+            --draft --verify-tag --title "${GITHUB_REF_NAME}" --notes ""
