@@ -65,7 +65,7 @@ namespace Sjcl.GripBlink
         [Tooltip("この値以下の入力は無視します（遊び）。この値を超えると閉眼が始まります")]
         public float deadZone = 0f;
 
-        [Tooltip("Fist（握り）ジェスチャー中のときだけ反応します。オフにすると全ジェスチャーでトリガー量に反応します")]
+        [Tooltip("Fist（握り）ジェスチャー中のときだけ反応します。Fist の間はトリガーを引いていなくても目を開いた状態に保ち、アバターの Fist の表情で目が閉じないようにします。オフにすると全ジェスチャーでトリガー量に反応します")]
         public bool requireFist = true;
 
         [Tooltip("閉眼操作中は VRChat 標準の自動まばたき・視線（Eyes & Eyelids トラッキング）を一時停止します")]

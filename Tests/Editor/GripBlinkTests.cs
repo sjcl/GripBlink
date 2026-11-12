@@ -149,7 +149,8 @@ namespace Sjcl.GripBlink.Tests.Editor
 
             var animator = PrepareAnimator(built);
             var li = animator.GetLayerIndex("GripBlink");
-            foreach (var (gesture, weight, active) in new[] { (1, 1f, true), (1, 0.5f, true), (1, 0f, false), (2, 1f, false) })
+            // Fist の間はトリガーが 0 でも Active（開いたポーズ）のまま
+            foreach (var (gesture, weight, active) in new[] { (1, 1f, true), (1, 0.5f, true), (1, 0f, true), (2, 1f, false) })
             {
                 SetHand(animator, "Left", gesture, weight);
                 Step(animator, li, 2);
@@ -183,6 +184,10 @@ namespace Sjcl.GripBlink.Tests.Editor
                 (1, 0.3f, 0, 0f, "Active (左手)", 30f, "引き継いだ左手の量に追従する"),
                 (0, 0f, 0, 0f, "Idle", 0f, "両手を離すと Idle"),
                 (1, 1f, 0, 0f, "Active (左手)", 100f, "左手だけで操作できる"),
+                (1, 0f, 0, 0f, "Active (左手)", 0f, "握っているだけなら開いたポーズのまま"),
+                (1, 0f, 1, 0.6f, "Active (右手)", 60f, "左手が握っているだけなら右手で操作できる"),
+                (1, 0f, 0, 0f, "Active (左手)", 0f, "右手が Fist をやめても、左手が握っていれば開いたポーズを保つ"),
+                (0, 0f, 0, 0f, "Idle", 0f, "両手を離すと Idle"),
             };
             foreach (var s in steps)
             {
@@ -191,6 +196,31 @@ namespace Sjcl.GripBlink.Tests.Editor
                 Step(animator, li, 6);
                 Assert.That(animator.GetCurrentAnimatorStateInfo(li).IsName(s.state), Is.True, s.why);
                 Assert.That(EyeClose(built), Is.EqualTo(s.value).Within(1.5f), s.why);
+            }
+        }
+
+        [Test]
+        public void Build_FistWithoutTrigger_KeepsEyesOpenOverAvatarFistFace()
+        {
+            var avatar = MakeAvatar("FistFace");
+            AddFistFaceLayer(avatar);
+            var gb = AddPrefab(avatar);
+            gb.blinkClip = avatar.Blink;
+            gb.hand = GripHand.Left;
+
+            var built = Build(avatar);
+            var animator = PrepareAnimator(built);
+            var li = animator.GetLayerIndex("GripBlink");
+            foreach (var (gesture, weight, expected, why) in new[]
+                     {
+                         (1, 1f, 100f, "トリガーを引くと閉じる"),
+                         (1, 0.5f, 50f, "トリガー量に追従する"),
+                         (1, 0f, 0f, "トリガーを戻すと、アバターの Fist の表情より GripBlink の開いたポーズが優先される"),
+                     })
+            {
+                SetHand(animator, "Left", gesture, weight);
+                StepWithLayerControl(animator, li, 6);
+                Assert.That(EyeClose(built), Is.EqualTo(expected).Within(1.5f), why);
             }
         }
 
@@ -489,6 +519,40 @@ namespace Sjcl.GripBlink.Tests.Editor
         {
             animator.SetLayerWeight(layerIndex, 1f);
             for (var i = 0; i < frames; i++) animator.Update(0.05f);
+        }
+
+        /// <summary>
+        /// Layer Control の代わりに、ステートに合わせてレイヤーウェイトを切り替える（Active なら 1、それ以外は 0）。
+        /// GripBlink が止まったときに下のレイヤーの表情が見えるかを確かめるため
+        /// </summary>
+        private static void StepWithLayerControl(Animator animator, int layerIndex, int frames)
+        {
+            for (var i = 0; i < frames; i++)
+            {
+                var active = animator.GetCurrentAnimatorStateInfo(layerIndex).IsName("Active");
+                animator.SetLayerWeight(layerIndex, active ? 1f : 0f);
+                animator.Update(0.05f);
+            }
+        }
+
+        /// <summary>左手の Fist で目を閉じたままにする、アバター自身の表情レイヤーを追加する</summary>
+        private static void AddFistFaceLayer(TestAvatar avatar)
+        {
+            var fx = AssetDatabase.LoadAssetAtPath<AnimatorController>(avatar.FxPath);
+            var face = new AnimationClip { name = "FistFace" };
+            AnimationUtility.SetEditorCurve(face, ShapeBinding("eye_close"), AnimationCurve.Constant(0, 1f / 60f, 100));
+            AssetDatabase.AddObjectToAsset(face, fx);
+            fx.AddLayer("Fist Face");
+            var sm = fx.layers[fx.layers.Length - 1].stateMachine;
+            var idle = sm.AddState("Idle");
+            var fist = sm.AddState("Fist");
+            fist.motion = face;
+            idle.AddTransition(fist).AddCondition(AnimatorConditionMode.Equals, 1, "GestureLeft");
+            fist.AddTransition(idle).AddCondition(AnimatorConditionMode.NotEqual, 1, "GestureLeft");
+            var layers = fx.layers;
+            layers[layers.Length - 1].defaultWeight = 1f; // AddLayer で追加したレイヤーはウェイト 0 になる
+            fx.layers = layers;
+            AssetDatabase.SaveAssets();
         }
 
         private static float EyeClose(GameObject built)

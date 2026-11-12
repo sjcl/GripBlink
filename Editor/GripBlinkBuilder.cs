@@ -104,6 +104,23 @@ namespace Sjcl.GripBlink.Editor
         }
 
         /// <summary>
+        /// 閉眼レイヤーを有効にしておく条件（AND）。
+        /// Fist 中のみ反応する場合は、トリガー量が遊び以下でも Fist の間は有効にして「開いたポーズ」を出し続ける。
+        /// 無効にすると、アバター自身の Fist の表情（目を閉じる顔など）がそのまま見えてしまうため。
+        /// VRChat ではトリガーを少し押した程度だと 0 になることがあり、その状態で目が閉じたように見える。
+        /// </summary>
+        private static List<Cond> HoldConditions(GripBlink gb, GripHand hand, float deadZone) =>
+            gb.requireFist
+                ? new List<Cond> { new Cond(AnimatorConditionMode.Equals, 1f, EyeChannel.GestureParam(hand)) }
+                : ActivateConditions(gb, hand, deadZone);
+
+        /// <summary>閉眼レイヤーを無効にする条件（OR。各要素が1つの遷移になる）</summary>
+        private static List<Cond> ReleaseConditions(GripBlink gb, GripHand hand, float deadZone) =>
+            gb.requireFist
+                ? new List<Cond> { new Cond(AnimatorConditionMode.NotEqual, 1f, EyeChannel.GestureParam(hand)) }
+                : DeactivateConditions(gb, hand, deadZone);
+
+        /// <summary>
         /// すべての手が操作をやめた条件。Animator の遷移条件は AND しか書けないため、
         /// 各手の「やめる条件（OR）」の直積を取り、組み合わせごとに1つの遷移にする。
         /// </summary>
@@ -183,12 +200,25 @@ namespace Sjcl.GripBlink.Editor
                 actives.Add((hand, active));
             }
 
-            // 遷移は追加した順に評価されるため、両手が同時に操作を始めたときは左手が優先される
+            // 遷移は追加した順に評価され、最初に条件を満たしたものが使われる。
+            // トリガーを引いている手を、握っているだけの手より先に評価する。
+            // 両手が同じ状態のときは左手が優先される
+            var holdDiffers = gb.requireFist;
             foreach (var (hand, active) in actives)
             {
                 var activate = ActivateConditions(gb, hand, deadZone);
                 AddTransition(init, active, activate);
                 AddTransition(idle, active, activate);
+            }
+
+            if (holdDiffers)
+            {
+                foreach (var (hand, active) in actives)
+                {
+                    var hold = HoldConditions(gb, hand, deadZone);
+                    AddTransition(init, active, hold);
+                    AddTransition(idle, active, hold);
+                }
             }
 
             foreach (var (hand, active) in actives)
@@ -198,15 +228,27 @@ namespace Sjcl.GripBlink.Editor
                 foreach (var (otherHand, other) in actives)
                 {
                     if (other == active) continue;
+
+                    // この手のトリガーが遊び以下になり、もう一方の手がトリガーを引いていれば引き継ぐ。
+                    // 片手で握っているだけのときに、もう一方の手で操作できなくならないようにするため
                     foreach (var release in DeactivateConditions(gb, hand, deadZone))
                     {
                         var conds = new List<Cond> { release };
                         conds.AddRange(ActivateConditions(gb, otherHand, deadZone));
                         AddTransition(active, other, conds, fade);
                     }
+
+                    // この手が Fist をやめても、もう一方の手が握っていれば開いたポーズを保つ
+                    if (!holdDiffers) continue;
+                    foreach (var release in ReleaseConditions(gb, hand, deadZone))
+                    {
+                        var conds = new List<Cond> { release };
+                        conds.AddRange(HoldConditions(gb, otherHand, deadZone));
+                        AddTransition(active, other, conds, fade);
+                    }
                 }
 
-                foreach (var release in DeactivateConditions(gb, hand, deadZone))
+                foreach (var release in ReleaseConditions(gb, hand, deadZone))
                     AddTransition(active, idle, new[] { release });
             }
 

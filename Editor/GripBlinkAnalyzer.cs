@@ -335,8 +335,8 @@ namespace Sjcl.GripBlink.Editor
             if (fistLayers.Count > 0)
             {
                 diagnostics.Add(new Diagnostic(Severity.Warning,
-                    "次のレイヤーは同じ手の Fist（握り）で目まわりの表情を動かします。握ると既存の表情と GripBlink が同時に発動し、"
-                    + "トリガーを引いている間は GripBlink の閉眼が優先されます:\n・" + string.Join("\n・", fistLayers)));
+                    "次のレイヤーは同じ手の Fist（握り）で目まわりの表情を動かします。握っている間は GripBlink が優先され、"
+                    + "トリガーを引いていなくても目は開いた状態になります（既存の表情の目の動きは出ません）:\n・" + string.Join("\n・", fistLayers)));
             }
 
             if (overlapLayers.Count > 0)
