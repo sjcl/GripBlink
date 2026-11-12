@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 using VRC.SDK3.Avatars.Components;
 
 namespace Sjcl.GripBlink.Editor
@@ -16,6 +18,11 @@ namespace Sjcl.GripBlink.Editor
         private const string MenuPath = "GameObject/GripBlink/GripBlink を追加";
         private const string UndoName = "Add GripBlink";
 
+        /// <summary>
+        /// ダイアログの表示。テストから差し替えて、Test Runner の実行中にダイアログで止まらないようにする
+        /// </summary>
+        internal static Func<string, string, string, string, bool> ShowDialog = EditorUtility.DisplayDialog;
+
         private static bool _scheduled;
         private static bool _installing;
 
@@ -25,7 +32,7 @@ namespace Sjcl.GripBlink.Editor
         }
 
         [MenuItem(MenuPath, true)]
-        private static bool ValidateAdd()
+        internal static bool ValidateAdd()
         {
             return Selection.gameObjects.Any(go => go.GetComponentInParent<VRCAvatarDescriptor>(true) != null);
         }
@@ -43,7 +50,7 @@ namespace Sjcl.GripBlink.Editor
             };
         }
 
-        private static void AddToSelection()
+        internal static void AddToSelection()
         {
             var avatars = Selection.gameObjects
                 .Select(go => go.GetComponentInParent<VRCAvatarDescriptor>(true))
@@ -53,15 +60,15 @@ namespace Sjcl.GripBlink.Editor
 
             if (avatars.Count == 0)
             {
-                EditorUtility.DisplayDialog("GripBlink",
-                    "VRC Avatar Descriptor が付いたアバター（またはその子）を選択してから実行してください。", "OK");
+                ShowDialog("GripBlink",
+                    "VRC Avatar Descriptor が付いたアバター（またはその子）を選択してから実行してください。", "OK", "");
                 return;
             }
 
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(PrefabGuid));
             if (prefab == null)
             {
-                EditorUtility.DisplayDialog("GripBlink", "GripBlink の Prefab が見つかりません。パッケージを再インストールしてください。", "OK");
+                ShowDialog("GripBlink", "GripBlink の Prefab が見つかりません。パッケージを再インストールしてください。", "OK", "");
                 return;
             }
 
@@ -105,9 +112,9 @@ namespace Sjcl.GripBlink.Editor
 
             if (skipped.Count > 0)
             {
-                EditorUtility.DisplayDialog("GripBlink",
+                ShowDialog("GripBlink",
                     "次のアバターには既に GripBlink があるため追加しませんでした（既存のものを選択しています）:\n"
-                    + string.Join("\n", skipped), "OK");
+                    + string.Join("\n", skipped), "OK", "");
             }
         }
 
@@ -171,7 +178,7 @@ namespace Sjcl.GripBlink.Editor
             };
         }
 
-        private static void CheckDropped(GripBlink gb)
+        internal static void CheckDropped(GripBlink gb)
         {
             if (gb == null) return;
 
@@ -193,7 +200,7 @@ namespace Sjcl.GripBlink.Editor
 
             if (others.Count > 0)
             {
-                var remove = EditorUtility.DisplayDialog("GripBlink",
+                var remove = ShowDialog("GripBlink",
                     $"アバター「{desc.name}」には既に GripBlink（{others[0].name}）があります。\n"
                     + "1つのアバターに複数置くことはできません。今追加したものを取り消しますか？",
                     "取り消す", "そのままにする");

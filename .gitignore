@@ -8,6 +8,5 @@
 /CHANGELOG.md.meta
 /LICENSE.meta
 
-# Automation and test scripts kept locally
+# Automation kept locally
 /.github/
-/Tests~/

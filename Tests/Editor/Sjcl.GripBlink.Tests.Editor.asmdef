@@ -1,0 +1,28 @@
+{
+    "name": "Sjcl.GripBlink.Tests.Editor",
+    "rootNamespace": "Sjcl.GripBlink.Tests.Editor",
+    "references": [
+        "Sjcl.GripBlink",
+        "Sjcl.GripBlink.Editor",
+        "nadena.dev.ndmf",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "VRCSDKBase.dll",
+        "VRCSDK3A.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
