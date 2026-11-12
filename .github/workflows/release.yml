@@ -37,7 +37,7 @@ jobs:
         run: |
           zip -r "${ASSET_NAME}-v${{ steps.ver.outputs.version }}.zip" \
             Editor Editor.meta Runtime Runtime.meta \
-            package.json package.json.meta LICENSE
+            package.json package.json.meta LICENSE LICENSE.meta
 
       - name: Prepare unitypackage
         run: |
