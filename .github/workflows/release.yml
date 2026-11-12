@@ -34,8 +34,9 @@ jobs:
 
       - name: Build zip
         run: |
-          zip -r "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" . \
-            -x ".git/*" ".github/*" "Tests/*" "Tests.meta" ".gitignore" ".gitattributes" "*.zip"
+          zip -r "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" \
+            Editor Editor.meta Runtime Runtime.meta \
+            package.json package.json.meta LICENSE
 
       - name: Prepare unitypackage
         run: |
