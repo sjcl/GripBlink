@@ -63,7 +63,7 @@ namespace Sjcl.GripBlink
 
         [Range(0f, 0.9f)]
         [Tooltip("この値以下の入力は無視します（遊び）。この値を超えると閉眼が始まります")]
-        public float deadZone = 0.05f;
+        public float deadZone = 0f;
 
         [Tooltip("Fist（握り）ジェスチャー中のときだけ反応します。オフにすると全ジェスチャーでトリガー量に反応します")]
         public bool requireFist = true;

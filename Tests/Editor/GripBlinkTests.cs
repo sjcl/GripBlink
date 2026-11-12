@@ -145,7 +145,7 @@ namespace Sjcl.GripBlink.Tests.Editor
             gb.maxClosure = 0.8f;
 
             var built = Build(avatar);
-            VerifyBuild(built, avatar, eyeLayers: 1, activesPerLayer: 1, maxClosure: 0.8f, deadZone: 0.05f, trackingHands: 1);
+            VerifyBuild(built, avatar, eyeLayers: 1, activesPerLayer: 1, maxClosure: 0.8f, deadZone: 0f, trackingHands: 1);
 
             var animator = PrepareAnimator(built);
             var li = animator.GetLayerIndex("GripBlink");
@@ -157,7 +157,7 @@ namespace Sjcl.GripBlink.Tests.Editor
                 Assert.That(state.IsName(active ? "Active" : "Idle"), Is.True, $"gesture={gesture} weight={weight}");
                 if (active)
                 {
-                    var expected = 100f * (weight - 0.05f) / 0.95f * 0.8f;
+                    var expected = 100f * weight * 0.8f;
                     Assert.That(EyeClose(built), Is.EqualTo(expected).Within(1.5f), $"gesture={gesture} weight={weight}");
                 }
             }
@@ -171,16 +171,16 @@ namespace Sjcl.GripBlink.Tests.Editor
             gb.blinkClip = avatar.Blink; // 手は初期値（左右どちらでも）
 
             var built = Build(avatar);
-            VerifyBuild(built, avatar, eyeLayers: 1, activesPerLayer: 2, maxClosure: 1f, deadZone: 0.05f, trackingHands: 2);
+            VerifyBuild(built, avatar, eyeLayers: 1, activesPerLayer: 2, maxClosure: 1f, deadZone: 0f, trackingHands: 2);
 
             var animator = PrepareAnimator(built);
             var li = animator.GetLayerIndex("GripBlink");
             var steps = new (int gL, float wL, int gR, float wR, string state, float value, string why)[]
             {
-                (0, 0f, 1, 0.5f, "Active (右手)", 100f * 0.45f / 0.95f, "右手だけで操作できる"),
-                (1, 1f, 1, 0.5f, "Active (右手)", 100f * 0.45f / 0.95f, "後から握った左手より右手が優先"),
+                (0, 0f, 1, 0.5f, "Active (右手)", 50f, "右手だけで操作できる"),
+                (1, 1f, 1, 0.5f, "Active (右手)", 50f, "後から握った左手より右手が優先"),
                 (1, 1f, 0, 0f, "Active (左手)", 100f, "右手を離すと左手に引き継ぐ"),
-                (1, 0.3f, 0, 0f, "Active (左手)", 100f * 0.25f / 0.95f, "引き継いだ左手の量に追従する"),
+                (1, 0.3f, 0, 0f, "Active (左手)", 30f, "引き継いだ左手の量に追従する"),
                 (0, 0f, 0, 0f, "Idle", 0f, "両手を離すと Idle"),
                 (1, 1f, 0, 0f, "Active (左手)", 100f, "左手だけで操作できる"),
             };

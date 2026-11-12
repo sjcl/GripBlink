@@ -52,7 +52,7 @@ MonoBehaviour:
   rightEyeClip: {fileID: 0}
   rightEyeHand: 1
   maxClosure: 1
-  deadZone: 0.05
+  deadZone: 0
   requireFist: 1
   suppressAutoBlink: 1
   fadeDuration: 0.1
