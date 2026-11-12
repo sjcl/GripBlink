@@ -2,5 +2,20 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/release\\.yml$/"
+      ],
+      "matchStrings": [
+        "https://github\\.com/anatawa12/VPMPackageAutoInstaller/releases/download/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/creator\\.mjs"
+      ],
+      "depNameTemplate": "anatawa12/VPMPackageAutoInstaller",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "autoReplaceStringTemplate": "https://github.com/anatawa12/VPMPackageAutoInstaller/releases/download/{{{newValue}}}/creator.mjs"
+    }
   ]
 }
