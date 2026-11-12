@@ -1,5 +1,6 @@
 # Release archives
 *.zip
+*.unitypackage
 
 # Documentation kept locally
 /README.md
@@ -7,3 +8,6 @@
 /CHANGELOG.md
 /CHANGELOG.md.meta
 /LICENSE.meta
+
+# Unity metadata for repository configuration
+/renovate.json.meta
