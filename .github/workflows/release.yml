@@ -37,10 +37,41 @@ jobs:
           zip -r "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" . \
             -x ".git/*" ".github/*" "Tests/*" "Tests.meta" ".gitignore" ".gitattributes" "*.zip"
 
+      - name: Prepare unitypackage
+        run: |
+          mkdir -p .unitypackage/Assets/sjcl/GripBlink
+          cp -R Editor Editor.meta Runtime Runtime.meta .unitypackage/Assets/sjcl/GripBlink/
+          cp LICENSE .unitypackage/Assets/sjcl/GripBlink/
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from uuid import NAMESPACE_URL, uuid5
+
+          project = Path(".unitypackage")
+          root = project / "Assets/sjcl/GripBlink"
+          for asset in (root.parent, root, root / "LICENSE"):
+              guid = uuid5(NAMESPACE_URL, f"{os.environ['PACKAGE_NAME']}/{asset.relative_to(project).as_posix()}").hex
+              meta = f"fileFormatVersion: 2\nguid: {guid}\n"
+              if asset.is_dir():
+                  meta += "folderAsset: yes\n"
+              meta += "DefaultImporter:\n  externalObjects: {}\n"
+              Path(f"{asset}.meta").write_text(meta, encoding="utf-8")
+          entries = sorted(path.relative_to(project).as_posix() for path in project.rglob("*.meta"))
+          Path("unitypackage-meta.txt").write_text("\n".join(entries) + "\n", encoding="utf-8")
+          PY
+
+      - name: Build unitypackage
+        uses: pCYSl5EDgo/create-unitypackage@b5c57408698b1fab8b3a84d4b67f767b8b7c0be9
+        with:
+          package-path: ${{ env.PACKAGE_NAME }}-${{ steps.ver.outputs.version }}.unitypackage
+          project-folder: .unitypackage
+          include-files: unitypackage-meta.txt
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" \
+            "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.unitypackage" \
             --draft --verify-tag --title "${GITHUB_REF_NAME}" --notes ""
