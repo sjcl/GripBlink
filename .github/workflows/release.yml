@@ -39,35 +39,36 @@ jobs:
             Editor Editor.meta Runtime Runtime.meta \
             package.json package.json.meta LICENSE LICENSE.meta
 
-      - name: Prepare unitypackage
+      - name: Build unitypackage installer
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          VPM_REPO_URL: ${{ vars.VPM_REPO_URL }}
         run: |
-          mkdir -p .unitypackage/Assets/sjcl/GripBlink
-          cp -R Editor Editor.meta Runtime Runtime.meta .unitypackage/Assets/sjcl/GripBlink/
-          cp LICENSE LICENSE.meta .unitypackage/Assets/sjcl/GripBlink/
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          from uuid import NAMESPACE_URL, uuid5
+          if [ -z "$VPM_REPO_URL" ]; then
+            echo "VPM_REPO_URL is not configured" >&2
+            exit 1
+          fi
 
-          project = Path(".unitypackage")
-          root = project / "Assets/sjcl/GripBlink"
-          for asset in (root.parent, root):
-              guid = uuid5(NAMESPACE_URL, f"{os.environ['PACKAGE_NAME']}/{asset.relative_to(project).as_posix()}").hex
-              meta = f"fileFormatVersion: 2\nguid: {guid}\n"
-              if asset.is_dir():
-                  meta += "folderAsset: yes\n"
-              meta += "DefaultImporter:\n  externalObjects: {}\n"
-              Path(f"{asset}.meta").write_text(meta, encoding="utf-8")
-          entries = sorted(path.relative_to(project).as_posix() for path in project.rglob("*.meta"))
-          Path("unitypackage-meta.txt").write_text("\n".join(entries) + "\n", encoding="utf-8")
-          PY
+          # Generate installer configuration
+          jq -n \
+            --arg repo "$VPM_REPO_URL" \
+            --arg package "$PACKAGE_NAME" \
+            --arg version "$VERSION" \
+            '{
+              vpmRepositories: [$repo],
+              vpmDependencies: {($package): $version},
+              minimumUnity: "2022.3"
+            }' > installer-config.json
 
-      - name: Build unitypackage
-        uses: pCYSl5EDgo/create-unitypackage@b5c57408698b1fab8b3a84d4b67f767b8b7c0be9
-        with:
-          package-path: ${{ env.ASSET_NAME }}-v${{ steps.ver.outputs.version }}.unitypackage
-          project-folder: .unitypackage
-          include-files: unitypackage-meta.txt
+          # Download pinned VPMPackageAutoInstaller Creator
+          curl -fLsS --retry 3 \
+            https://github.com/anatawa12/VPMPackageAutoInstaller/releases/download/v1.1.6/creator.mjs \
+            -o creator.mjs
+
+          # Generate unitypackage
+          node creator.mjs \
+            installer-config.json \
+            "${ASSET_NAME}-v${VERSION}.unitypackage"
 
       - name: Create draft release
         env:
