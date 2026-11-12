@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir -p .unitypackage/Assets/sjcl/GripBlink
           cp -R Editor Editor.meta Runtime Runtime.meta .unitypackage/Assets/sjcl/GripBlink/
-          cp LICENSE .unitypackage/Assets/sjcl/GripBlink/
+          cp LICENSE LICENSE.meta .unitypackage/Assets/sjcl/GripBlink/
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -51,7 +51,7 @@ jobs:
 
           project = Path(".unitypackage")
           root = project / "Assets/sjcl/GripBlink"
-          for asset in (root.parent, root, root / "LICENSE"):
+          for asset in (root.parent, root):
               guid = uuid5(NAMESPACE_URL, f"{os.environ['PACKAGE_NAME']}/{asset.relative_to(project).as_posix()}").hex
               meta = f"fileFormatVersion: 2\nguid: {guid}\n"
               if asset.is_dir():
