@@ -62,13 +62,6 @@ namespace Sjcl.GripBlink.Editor
             serializedObject.Update();
             EditorGUI.BeginChangeCheck();
 
-            EditorGUILayout.HelpBox(
-                "トリガーの引き具合（Fist ジェスチャー中の GestureWeight）に応じて目を閉じます。"
-                + "VRChat にはグリップの握り具合を表すアナログ値がないため、トリガー量を使います。\n"
-                + "アップロード時・Play 時に自動で組み込まれ、元のアバターやアニメーションは変更しません。"
-                + "このオブジェクトを削除すれば元に戻ります。",
-                MessageType.None);
-
             using (new EditorGUI.DisabledScope(true))
             {
                 EditorGUILayout.ObjectField("対象アバター", desc, typeof(VRC.SDK3.Avatars.Components.VRCAvatarDescriptor), true);
