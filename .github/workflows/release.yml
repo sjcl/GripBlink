@@ -14,6 +14,7 @@ concurrency:
 
 env:
   PACKAGE_NAME: me.sjcl.gripblink
+  ASSET_NAME: GripBlink
 
 jobs:
   release:
@@ -34,7 +35,7 @@ jobs:
 
       - name: Build zip
         run: |
-          zip -r "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" \
+          zip -r "${ASSET_NAME}-v${{ steps.ver.outputs.version }}.zip" \
             Editor Editor.meta Runtime Runtime.meta \
             package.json package.json.meta LICENSE
 
@@ -64,7 +65,7 @@ jobs:
       - name: Build unitypackage
         uses: pCYSl5EDgo/create-unitypackage@b5c57408698b1fab8b3a84d4b67f767b8b7c0be9
         with:
-          package-path: ${{ env.PACKAGE_NAME }}-${{ steps.ver.outputs.version }}.unitypackage
+          package-path: ${{ env.ASSET_NAME }}-v${{ steps.ver.outputs.version }}.unitypackage
           project-folder: .unitypackage
           include-files: unitypackage-meta.txt
 
@@ -73,6 +74,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.zip" \
-            "${PACKAGE_NAME}-${{ steps.ver.outputs.version }}.unitypackage" \
+            "${ASSET_NAME}-v${{ steps.ver.outputs.version }}.zip" \
+            "${ASSET_NAME}-v${{ steps.ver.outputs.version }}.unitypackage" \
             --draft --verify-tag --title "${GITHUB_REF_NAME}" --notes ""
